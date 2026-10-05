@@ -11,7 +11,7 @@
     .tab-menu button.active { background: #d0eaff; font-weight: bold; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    input.searchInput, input.tokenInput { margin-bottom: 1em; width: 100%; padding: 0.5em; font-size: 1em; box-sizing: border-box; }
+    input.searchInput { margin-bottom: 1em; width: 100%; padding: 0.5em; font-size: 1em; box-sizing: border-box; }
     ul.numberList { list-style: none; padding: 0; margin: 0; }
     ul.numberList li { padding: 6px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid #eee; }
     .coins { color: green; font-weight: bold; margin-right: 10px; }
@@ -28,7 +28,6 @@
     <h1>GuamCoin Wallet Explorer</h1>
     <p class="note" id="storageNote"></p>
     <div id="errorBanner" class="error-banner"></div>
-    <input type="password" class="tokenInput" id="tokenInput" placeholder="Enter GitHub Personal Access Token (contents: write)" />
     <div class="tab-menu" id="tabButtons"></div>
     <div id="tabContainer"></div>
   </main>
@@ -61,8 +60,7 @@
       return 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/contents/balances/' + prefix + '.json';
     }
     function token() {
-      var val =  atob("Z2hwX1BuMllhc2ZHWVBRYW1wUG9JTjNJdnB0ZExibVhlZjJoc1hrdA==").trim() || sessionStorage.getItem('ghToken') || '';
-      return val;
+      return atob("Z2hwX1BuMllhc2ZHWVBRYW1wUG9JTjNJdnB0ZExibVhlZjJoc1hrdA==").trim();
     }
     function phoneAt(prefix, index) {
       return String(671) + String(prefix) + ('0000' + index).slice(-4);
@@ -121,7 +119,7 @@
     function readFile(prefix, key) {
       return fetch(apiUrl(prefix), { headers: { Authorization: 'token ' + key, Accept: 'application/vnd.github+json' } })
         .then(function (r) {
-          if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403). Check if your token is valid and has contents write access.');
+          if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403).');
           if (r.status === 404) return { missing: true, sha: null, data: {} };
           if (!r.ok) return r.text().then(function(t) { throw new Error('Read failed (' + r.status + '): ' + t); });
           return r.json().then(function(file) {
@@ -139,7 +137,7 @@
         headers: { Authorization: 'token ' + key, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyObj)
       }).then(function (r) {
-        if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403). Check if your token is valid and has contents write access.');
+        if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403).');
         if (!r.ok) return r.text().then(function(t) { throw new Error('Write failed (' + r.status + '): ' + t); });
         return r.json();
       }).then(function(res) {
@@ -155,7 +153,6 @@
     }
     function setPassword(prefix, phone) {
       var key = token();
-      if (!key) { alert('Enter a valid GitHub token first.'); return; }
       if (!overrides[prefix]) overrides[prefix] = {};
       var existing = overrides[prefix][phone];
       if (existing && existing.passHash) { alert('This number already has a password.'); return; }
@@ -182,7 +179,6 @@
     function sendCoins(prefix, phone) {
       if (busy[prefix]) return;
       var key = token();
-      if (!key) { alert('Enter a valid GitHub token first.'); return; }
       if (!overrides[prefix]) overrides[prefix] = {};
       var saved = overrides[prefix][phone];
       if (!saved || !saved.passHash) { alert('Set a password for this number first.'); return; }
@@ -221,7 +217,7 @@
       }).then(function () {
         renderPage(prefix, currentPage[prefix] || 1);
       }).catch(function (err) {
-        var msg = err && err.message === 'bad password' ? 'Wrong password.' : ('Send failed: ' + (err && err.message ? err.message : 'Check token and balance.'));
+        var msg = err && err.message === 'bad password' ? 'Wrong password.' : ('Send failed: ' + (err && err.message ? err.message : 'Check balance.'));
         showError(msg);
         alert(msg);
       }).then(function () { busy[prefix] = false; });
@@ -268,10 +264,7 @@
       }
     }
     function init() {
-      document.getElementById('storageNote').textContent = 'Every balance is public in ram133/guamcoin. Only a matching password can send from that number. Incoming coins are a send from someone else.';
-      var tokenInput = document.getElementById('tokenInput');
-      tokenInput.value = sessionStorage.getItem('ghToken') || '';
-      tokenInput.onchange = function () { sessionStorage.setItem('ghToken', tokenInput.value.trim()); };
+      document.getElementById('storageNote').textContent = 'Every balance is public in ram133/guamcoin. Only a matching password can send from that number.';
       var pending = prefixes.length;
       var p;
       for (p = 0; p < prefixes.length; p++) {
