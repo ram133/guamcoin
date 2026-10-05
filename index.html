@@ -3,41 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Docomo Wallet Explorer</title>
+  <title>Guamcoin Wallet Explorer</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 1em; margin: 0; }
-    .tab-menu { display: flex; gap: 8px; margin-bottom: 1em; flex-wrap: wrap; }
-    .tab-menu button { padding: 8px 12px; font-size: 0.9em; cursor: pointer; border: 1px solid #ccc; background: #f4f4f4; }
-    .tab-menu button.active { background: #d0eaff; font-weight: bold; }
+    :root {
+      --bg: #0e1a17;
+      --card: #16302a;
+      --text: #e8f3ee;
+      --muted: #9bb5ab;
+      --line: #2c4a41;
+      --accent: #3ddc97;
+      --warn: #f0c14b;
+    }
+    body { font-family: Arial, sans-serif; padding: 1em; margin: 0; background: var(--bg); color: var(--text); }
+    h1, h2 { margin: 0 0 0.4em; }
+    .tab-menu { display: flex; gap: 8px; margin: 1em 0; flex-wrap: wrap; }
+    .tab-menu button { padding: 8px 12px; font-size: 0.9em; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 6px; }
+    .tab-menu button.active { background: #1f4d3e; border-color: var(--accent); font-weight: bold; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    input.searchInput { margin-bottom: 1em; width: 100%; padding: 0.5em; font-size: 1em; box-sizing: border-box; }
+    input, textarea { margin-bottom: 0.8em; width: 100%; padding: 0.6em; font-size: 1em; box-sizing: border-box; background: #10241f; color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
     ul.numberList { list-style: none; padding: 0; margin: 0; }
-    ul.numberList li { padding: 6px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid #eee; }
-    .coins { color: green; font-weight: bold; margin-right: 10px; }
-    .status { margin-left: 10px; font-style: italic; }
-    .history { display: block; color: #666; font-size: 0.8em; margin-top: 4px; }
-    .wallet-actions button { margin-left: 6px; padding: 2px 6px; font-size: 0.8em; cursor: pointer; }
-    .pagination button { margin: 2px; padding: 5px 10px; font-size: 0.9em; cursor: pointer; }
-    .note { color: #666; font-size: 0.85em; }
-    #requestBox { white-space: pre-wrap; background: #f7f7f7; border: 1px solid #ddd; padding: 0.75em; font-size: 0.85em; }
+    ul.numberList li { padding: 8px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--line); }
+    .coins { color: var(--accent); font-weight: bold; margin-right: 10px; }
+    .status { margin-left: 10px; font-style: italic; color: var(--warn); }
+    .history { display: block; color: var(--muted); font-size: 0.8em; margin-top: 4px; }
+    button { cursor: pointer; }
+    .wallet-actions button, .pagination button, .row button { margin-left: 6px; padding: 4px 8px; font-size: 0.8em; background: #1f4d3e; color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+    .pagination button { margin: 2px; padding: 5px 10px; font-size: 0.9em; }
+    .note { color: var(--muted); font-size: 0.9em; }
+    #requestBox, #operatorOut { white-space: pre-wrap; background: #10241f; border: 1px solid var(--line); padding: 0.75em; font-size: 0.85em; border-radius: 6px; }
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1em; margin: 1.2em 0; }
+    .operator { border-color: var(--warn); }
   </style>
 </head>
 <body>
   <main>
-    <h1>Docomo Wallet Explorer</h1>
+    <h1>Guamcoin Wallet Explorer</h1>
     <p class="note" id="storageNote"></p>
-    <p class="note">Requests are not applied until the repo owner commits them. Issues on this repo are public, so the slip contains a password hash, never the password.</p>
+    <p class="note">Clifford is the only operator. Everyone else can request a password or a funds transfer. Nothing changes until the operator applies it. Issues are public, so a request carries a password hash, never the password.</p>
     <div class="tab-menu" id="tabButtons"></div>
     <div id="tabContainer"></div>
-    <h2>Latest request</h2>
-    <pre id="requestBox">No request yet.</pre>
-    <p><button id="copyRequest" type="button">Copy request</button></p>
+
+    <div class="panel">
+      <h2>Latest request to the operator</h2>
+      <pre id="requestBox">No request yet.</pre>
+      <p><button id="copyRequest" type="button">Copy request</button></p>
+    </div>
+
+    <div class="panel operator">
+      <h2>Operator only</h2>
+      <p class="note">Only Clifford applies password and transfer requests. Paste a GitHub token with contents write on this repo. The token stays in this browser tab. It is not saved.</p>
+      <input type="password" id="operatorToken" placeholder="Operator GitHub token" autocomplete="off" />
+      <textarea id="operatorRequest" rows="8" placeholder="Paste a request JSON here, then Apply"></textarea>
+      <p>
+        <button id="applyRequest" type="button">Apply request</button>
+        <button id="loadLatest" type="button">Load latest request</button>
+      </p>
+      <pre id="operatorOut">Operator idle.</pre>
+    </div>
   </main>
   <script>
     var OWNER = 'ram133';
     var REPO = 'guamcoin';
     var BRANCH = 'main';
+    var OPERATOR = 'Clifford';
     var prefixes = [456, 678, 682, 683, 685, 686, 687, 688, 689, 707, 726, 727, 747, 777, 787, 788, 797, 838, 848, 858, 868, 878, 888, 898, 922, 929, 967, 969, 971, 972, 977, 979, 987, 988, 989, 991, 996, 997, 998, 999];
     var total = 9999;
     var perPage = 200;
@@ -49,6 +78,9 @@
 
     function rawUrl(prefix) {
       return 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/balances/' + prefix + '.json?t=' + Date.now();
+    }
+    function apiUrl(prefix) {
+      return 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/contents/balances/' + prefix + '.json';
     }
     function phoneAt(prefix, index) {
       return String(671) + String(prefix) + ('0000' + index).slice(-4);
@@ -105,16 +137,19 @@
       renderPage(activePrefix, currentPage[activePrefix] || 1);
     }
     function publishRequest(request) {
+      request.operator = OPERATOR;
+      request.note = 'Request only. ' + OPERATOR + ' must apply this before any password or transfer is real.';
       lastRequest = JSON.stringify(request, null, 2);
       document.getElementById('requestBox').textContent = lastRequest;
-      var title = request.action + ' ' + request.phone;
+      document.getElementById('operatorRequest').value = lastRequest;
+      var title = 'Request for ' + OPERATOR + ': ' + request.action + ' ' + request.phone;
       var url = 'https://github.com/' + OWNER + '/' + REPO + '/issues/new?title=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(lastRequest);
       window.open(url, '_blank');
     }
     function setPassword(prefix, phone) {
       var existing = overrides[prefix][phone];
-      if (existing && existing.passHash) { alert('This number already has a password. Ask the owner to reset it.'); return; }
-      var password = prompt('Set a password for ' + phone);
+      if (existing && existing.passHash) { alert('This number already has a password. Ask ' + OPERATOR + ' to reset it.'); return; }
+      var password = prompt('Choose a password for ' + phone + '. ' + OPERATOR + ' must apply the request.');
       if (!password) return;
       var again = prompt('Repeat the password');
       if (password !== again) { alert('Passwords did not match.'); return; }
@@ -130,7 +165,7 @@
     }
     function sendCoins(prefix, phone) {
       var saved = overrides[prefix][phone];
-      if (!saved || !saved.passHash) { alert('Set a password for this number first.'); return; }
+      if (!saved || !saved.passHash) { alert('Ask ' + OPERATOR + ' to apply a password for this number first.'); return; }
       if (saved.coins < 10) { alert('Not enough coins.'); return; }
       var password = prompt('Password for ' + phone);
       if (!password) return;
@@ -173,7 +208,7 @@
         var last = item.history.length ? item.history[item.history.length - 1] : null;
         var lastText = last ? '<span class="history">last ' + last.reason + ' ' + last.delta + ' at ' + last.at + '</span>' : '';
         var li = document.createElement('li');
-        li.innerHTML = '<span>' + item.phone + lastText + '</span><span><span class="coins">(' + item.coins + ' coins)</span><span class="status">' + (item.hasPassword ? 'locked' : 'no password') + '</span><span class="wallet-actions"><button data-action="password" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Request password</button><button data-action="send" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Request send 10</button></span></span>';
+        li.innerHTML = '<span>' + item.phone + lastText + '</span><span><span class="coins">(' + item.coins + ' coins)</span><span class="status">' + (item.hasPassword ? 'locked' : 'no password') + '</span><span class="wallet-actions"><button data-action="password" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Request password</button><button data-action="send" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Request transfer 10</button></span></span>';
         list.appendChild(li);
       }
       renderPagination(prefix, indexes.length, page);
@@ -191,12 +226,94 @@
         container.appendChild(btn);
       }
     }
+    function operatorToken() {
+      return document.getElementById('operatorToken').value.trim();
+    }
+    function say(msg) {
+      document.getElementById('operatorOut').textContent = msg;
+    }
+    function readFile(prefix, key) {
+      return fetch(apiUrl(prefix), { headers: { Authorization: 'Bearer ' + key, Accept: 'application/vnd.github+json' } })
+        .then(function (r) { return r.status === 404 ? { missing: true } : r.json(); });
+    }
+    function writeFile(prefix, key, data, sha, message) {
+      return fetch(apiUrl(prefix), {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + key, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message, content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))), sha: sha, branch: BRANCH })
+      }).then(function (r) {
+        if (!r.ok) throw new Error('GitHub write failed for ' + prefix);
+        return r.json();
+      });
+    }
+    function applyRequest() {
+      var key = operatorToken();
+      if (!key) { alert('Operator token required. Others can only request.'); return; }
+      var request;
+      try { request = JSON.parse(document.getElementById('operatorRequest').value); }
+      catch (e) { alert('Request JSON is not valid.'); return; }
+      if (!request || !request.action || !request.phone) { alert('Missing action or phone.'); return; }
+      var prefix = String(request.prefix || prefixOf(request.phone));
+      say('Applying ' + request.action + ' for ' + request.phone + '...');
+      readFile(prefix, key).then(function (file) {
+        var data = {};
+        if (!file.missing && file.content) data = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, '')))));
+        var row = data[request.phone] || { coins: 100, status: 'active', history: [] };
+        if (!row.history) row.history = [];
+        if (request.action === 'set-password') {
+          if (!request.passHash) throw new Error('Missing passHash');
+          row.passHash = request.passHash;
+          row.status = 'locked';
+          row.history.push({ delta: 0, reason: 'password-set-by-operator', at: new Date().toISOString(), balance: row.coins });
+          data[request.phone] = row;
+          return writeFile(prefix, key, data, file.sha, 'operator set password ' + request.phone).then(function () {
+            overrides[prefix] = data;
+            renderPage(prefix, currentPage[prefix] || 1);
+            say('Password applied by ' + OPERATOR + ' for ' + request.phone + '.');
+          });
+        }
+        if (request.action === 'send') {
+          if (!row.passHash || row.passHash !== request.passHash) throw new Error('Password hash does not match');
+          var amount = Number(request.amount) || 10;
+          if (row.coins < amount) throw new Error('Not enough coins');
+          var destPrefix = String(request.destPrefix || prefixOf(request.dest));
+          row.coins -= amount;
+          row.history.push({ delta: -amount, reason: 'send-to-' + request.dest, at: new Date().toISOString(), balance: row.coins });
+          data[request.phone] = row;
+          return writeFile(prefix, key, data, file.sha, 'operator transfer ' + request.phone + ' -' + amount).then(function () {
+            overrides[prefix] = data;
+            return readFile(destPrefix, key).then(function (destFile) {
+              var destData = {};
+              if (!destFile.missing && destFile.content) destData = JSON.parse(decodeURIComponent(escape(atob(destFile.content.replace(/\n/g, '')))));
+              var destRow = destData[request.dest] || { coins: 100, status: 'active', history: [] };
+              if (!destRow.history) destRow.history = [];
+              destRow.coins += amount;
+              destRow.history.push({ delta: amount, reason: 'receive-from-' + request.phone, at: new Date().toISOString(), balance: destRow.coins });
+              destData[request.dest] = destRow;
+              return writeFile(destPrefix, key, destData, destFile.sha, 'operator transfer ' + request.dest + ' +' + amount).then(function () {
+                overrides[destPrefix] = destData;
+                renderPage(prefix, currentPage[prefix] || 1);
+                if (document.getElementById('tab-' + destPrefix)) renderPage(destPrefix, currentPage[destPrefix] || 1);
+                say('Transfer applied by ' + OPERATOR + ': ' + amount + ' from ' + request.phone + ' to ' + request.dest + '.');
+              });
+            });
+          });
+        }
+        throw new Error('Unknown action');
+      }).catch(function (err) {
+        say('Not applied. ' + (err && err.message ? err.message : 'Check the operator token and request.'));
+      });
+    }
     function init() {
-      document.getElementById('storageNote').textContent = 'Balances are public in ram133/guamcoin. Sends and password sets are requests. Only the owner writes balances/*.json.';
+      document.getElementById('storageNote').textContent = 'Balances are public in ' + OWNER + '/' + REPO + '. Password and transfer requests go to ' + OPERATOR + '. Only the operator writes balances/*.json.';
       document.getElementById('copyRequest').onclick = function () {
         if (!lastRequest) return;
         navigator.clipboard.writeText(lastRequest);
       };
+      document.getElementById('loadLatest').onclick = function () {
+        document.getElementById('operatorRequest').value = lastRequest || '';
+      };
+      document.getElementById('applyRequest').onclick = applyRequest;
       var pending = prefixes.length;
       var p;
       for (p = 0; p < prefixes.length; p++) {
