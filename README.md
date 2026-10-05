@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Docomo Wallet Explorer</title>
+  <title>GuamCoin Wallet Explorer</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 1em; margin: 0; }
     .tab-menu { display: flex; gap: 8px; margin-bottom: 1em; flex-wrap: wrap; }
@@ -26,7 +26,7 @@
 </head>
 <body>
   <main>
-    <h1>Docomo Wallet Explorer</h1>
+    <h1>GuamCoin Wallet Explorer</h1>
     <p class="note" id="storageNote"></p>
     <input type="password" class="tokenInput" id="tokenInput" placeholder="GitHub token with contents write on the coin repo" />
     <div class="tab-menu" id="tabButtons"></div>
