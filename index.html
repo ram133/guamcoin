@@ -1,253 +1,48 @@
-<!-- https://github.com/ram133/guamcoin -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GuamCoin Wallet Explorer</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 1em; margin: 0; }
-    .tab-menu { display: flex; gap: 8px; margin-bottom: 1em; flex-wrap: wrap; }
-    .tab-menu button { padding: 8px 12px; font-size: 0.9em; cursor: pointer; border: 1px solid #ccc; background: #f4f4f4; }
-    .tab-menu button.active { background: #d0eaff; font-weight: bold; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    input.searchInput { margin-bottom: 1em; width: 100%; padding: 0.5em; font-size: 1em; box-sizing: border-box; }
-    ul.numberList { list-style: none; padding: 0; margin: 0; }
-    ul.numberList li { padding: 6px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid #eee; }
-    .coins { color: green; font-weight: bold; margin-right: 10px; }
-    .history { display: block; color: #666; font-size: 0.8em; margin-top: 4px; }
-    .wallet-actions button { margin-left: 6px; padding: 2px 6px; font-size: 0.8em; cursor: pointer; }
-    .pagination button { margin: 2px; padding: 5px 10px; font-size: 0.9em; cursor: pointer; }
-    .note { color: #666; font-size: 0.85em; }
-    .error-banner { background: #ffebee; color: #c62828; padding: 0.5em; margin-bottom: 1em; border: 1px solid #ef9a9a; display: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guam Coin & Professional Services</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #0f172a; color: #f8fafc; line-height: 1.6; }
+        h1, h2 { color: #38bdf8; }
+        .card { background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; }
+        .price { font-size: 1.25rem; font-weight: bold; color: #4ade80; }
+        .btn { display: inline-block; background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; margin-top: 10px; font-weight: bold; }
+        .btn:hover { background: #0369a1; }
+        footer { margin-top: 40px; font-size: 0.85rem; color: #94a3b8; text-align: center; }
+    </style>
 </head>
 <body>
-  <main>
-    <h1>GuamCoin Wallet Explorer</h1>
-    <p class="note" id="storageNote"></p>
-    <div id="errorBanner" class="error-banner"></div>
-    <div class="tab-menu" id="tabButtons"></div>
-    <div id="tabContainer"></div>
-  </main>
-  <script>
-    var OWNER = 'ram133';
-    var REPO = 'guamcoin';
-    var BRANCH = 'main';
-    var prefixes = [456, 678, 682, 683, 685, 686, 687, 688, 689, 707, 726, 727, 747, 777, 787, 788, 797, 838, 848, 858, 868, 878, 888, 898, 922, 929, 967, 969, 971, 972, 977, 979, 987, 988, 989, 991, 996, 997, 998, 999];
-    var total = 9999;
-    var perPage = 200;
-    var tabButtonsDiv = document.getElementById('tabButtons');
-    var tabContainer = document.getElementById('tabContainer');
-    var overrides = {};
-    var currentPage = {};
-    var busy = {};
+    <h1>Guam Coin & Digital Services</h1>
+    <p>Automated programmatic solutions and digital assets for Guam.</p>
+    
+    <h2>Available Services</h2>
 
-    function showError(msg) {
-      var banner = document.getElementById('errorBanner');
-      if (msg) {
-        banner.textContent = msg;
-        banner.style.display = 'block';
-      } else {
-        banner.style.display = 'none';
-      }
-    }
-    function rawUrl(prefix) {
-      return 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/balances/' + prefix + '.json?t=' + Date.now();
-    }
-    function apiUrl(prefix) {
-      return 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/contents/balances/' + prefix + '.json';
-    }
-    function token() {
-      return atob("Z2hwX1BuMllhc2ZHWVBRYW1wUG9JTjNJdnB0ZExibVhlZjJoc1hrdA==").trim();
-    }
-    function phoneAt(prefix, index) {
-      return String(671) + String(prefix) + ('0000' + index).slice(-4);
-    }
-    function prefixOf(phone) {
-      return phone.slice(3, 6);
-    }
-    function entryAt(prefix, index) {
-      var phone = phoneAt(prefix, index);
-      var saved = overrides[prefix] && overrides[prefix][phone];
-      return {
-        phone: phone,
-        coins: saved ? saved.coins : 100,
-        history: saved && saved.history ? saved.history : []
-      };
-    }
-    function loadOverrides(prefix, done) {
-      fetch(rawUrl(prefix))
-        .then(function (r) { return r.ok ? r.json() : {}; })
-        .then(function (data) { done(data || {}); })
-        .catch(function () { done({}); });
-    }
-    function createTab(prefix) {
-      var btn = document.createElement('button');
-      btn.textContent = prefix;
-      btn.setAttribute('data-prefix', prefix);
-      tabButtonsDiv.appendChild(btn);
-      var wrapper = document.createElement('div');
-      wrapper.className = 'tab-content';
-      wrapper.id = 'tab-' + prefix;
-      wrapper.innerHTML = '<input type="text" class="searchInput" id="search-' + prefix + '" placeholder="Search ' + prefix + ' numbers..." /><ul class="numberList" id="list-' + prefix + '"></ul><div class="pagination" id="pagination-' + prefix + '"></div>';
-      tabContainer.appendChild(wrapper);
-    }
-    function showTab(activePrefix) {
-      var tabs = document.querySelectorAll('.tab-content');
-      var buttons = document.querySelectorAll('.tab-menu button');
-      var i;
-      for (i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
-      for (i = 0; i < buttons.length; i++) buttons[i].classList.remove('active');
-      document.getElementById('tab-' + activePrefix).classList.add('active');
-      for (i = 0; i < buttons.length; i++) {
-        if (buttons[i].textContent == String(activePrefix)) buttons[i].classList.add('active');
-      }
-      renderPage(activePrefix, currentPage[activePrefix] || 1);
-    }
-    function readFile(prefix, key) {
-      return fetch(apiUrl(prefix), { headers: { Authorization: 'token ' + key, Accept: 'application/vnd.github+json' } })
-        .then(function (r) {
-          if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403).');
-          if (r.status === 404) return { missing: true, sha: null, data: {} };
-          if (!r.ok) return r.text().then(function(t) { throw new Error('Read failed (' + r.status + '): ' + t); });
-          return r.json().then(function(file) {
-            var data = {};
-            if (file.content) data = JSON.parse(atob(file.content.replace(/\n/g, '')));
-            return { missing: false, sha: file.sha, data: data };
-          });
-        });
-    }
-    function writeFile(prefix, key, data, sha, message) {
-      var bodyObj = { message: message, content: btoa(JSON.stringify(data)), branch: BRANCH };
-      if (sha) bodyObj.sha = sha;
-      return fetch(apiUrl(prefix), {
-        method: 'PUT',
-        headers: { Authorization: 'token ' + key, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyObj)
-      }).then(function (r) {
-        if (r.status === 401 || r.status === 403) throw new Error('GitHub Authentication failed (401/403).');
-        if (!r.ok) return r.text().then(function(t) { throw new Error('Write failed (' + r.status + '): ' + t); });
-        return r.json();
-      }).then(function(res) {
-        overrides[prefix] = data;
-        showError(null);
-        return res;
-      });
-    }
-    function rowFor(data, phone) {
-      var row = data[phone] || { coins: 100, history: [] };
-      if (!row.history) row.history = [];
-      return row;
-    }
-    function sendCoins(prefix, phone) {
-      if (busy[prefix]) return;
-      var key = token();
-      if (!overrides[prefix]) overrides[prefix] = {};
-      var dest = prompt('Destination phone, 10 digits starting with 671');
-      if (!dest || dest === phone || prefixOf(dest).length !== 3) { alert('Bad destination.'); return; }
-      busy[prefix] = true;
-      var destPrefix = prefixOf(dest);
-      readFile(prefix, key).then(function (srcFile) {
-        var src = rowFor(srcFile.data, phone);
-        if (src.coins < 10) throw new Error('not enough coins');
-        src.coins -= 10;
-        src.history.push({ delta: -10, reason: 'send', to: dest, at: new Date().toISOString(), balance: src.coins });
-        srcFile.data[phone] = src;
-        if (destPrefix === String(prefix)) {
-          var dst = rowFor(srcFile.data, dest);
-          dst.coins += 10;
-          dst.history.push({ delta: 10, reason: 'receive', from: phone, at: new Date().toISOString(), balance: dst.coins });
-          srcFile.data[dest] = dst;
-          return writeFile(prefix, key, srcFile.data, srcFile.sha, phone + ' send 10 to ' + dest);
-        }
-        return writeFile(prefix, key, srcFile.data, srcFile.sha, phone + ' send 10 to ' + dest).then(function () {
-          return readFile(destPrefix, key).then(function (dstFile) {
-            var dst = rowFor(dstFile.data, dest);
-            dst.coins += 10;
-            dst.history.push({ delta: 10, reason: 'receive', from: phone, at: new Date().toISOString(), balance: dst.coins });
-            dstFile.data[dest] = dst;
-            return writeFile(destPrefix, key, dstFile.data, dstFile.sha, dest + ' receive 10 from ' + phone);
-          });
-        });
-      }).then(function () {
-        renderPage(prefix, currentPage[prefix] || 1);
-      }).catch(function (err) {
-        var msg = 'Send failed: ' + (err && err.message ? err.message : 'Check balance.');
-        showError(msg);
-        alert(msg);
-      }).then(function () { busy[prefix] = false; });
-    }
-    function matches(phone, filterVal) {
-      return !filterVal || phone.indexOf(filterVal) !== -1;
-    }
-    function renderPage(prefix, page) {
-      currentPage[prefix] = page;
-      var input = document.getElementById('search-' + prefix);
-      var filterVal = input ? input.value : '';
-      var list = document.getElementById('list-' + prefix);
-      list.innerHTML = '';
-      var indexes = [];
-      var i;
-      for (i = 0; i < total; i++) {
-        if (matches(phoneAt(prefix, i), filterVal)) indexes.push(i);
-      }
-      var pages = Math.max(1, Math.ceil(indexes.length / perPage));
-      if (page < 1) page = 1;
-      if (page > pages) page = pages;
-      var sliced = indexes.slice((page - 1) * perPage, page * perPage);
-      for (i = 0; i < sliced.length; i++) {
-        var item = entryAt(prefix, sliced[i]);
-        var last = item.history.length ? item.history[item.history.length - 1] : null;
-        var lastText = last ? '<span class="history">last ' + last.reason + ' ' + last.delta + ' at ' + last.at + '</span>' : '';
-        var li = document.createElement('li');
-        li.innerHTML = '<span>' + item.phone + lastText + '</span><span><span class="coins">(' + item.coins + ' coins)</span><span class="wallet-actions"><button data-action="send" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Send 10</button></span></span>';
-        list.appendChild(li);
-      }
-      renderPagination(prefix, indexes.length, page);
-    }
-    function renderPagination(prefix, length, activePage) {
-      var container = document.getElementById('pagination-' + prefix);
-      container.innerHTML = '';
-      var pages = Math.max(1, Math.ceil(length / perPage));
-      var i;
-      for (i = 1; i <= pages; i++) {
-        var btn = document.createElement('button');
-        btn.textContent = i;
-        if (i === activePage) btn.style.fontWeight = 'bold';
-        btn.onclick = (function (n) { return function () { renderPage(prefix, n); }; })(i);
-        container.appendChild(btn);
-      }
-    }
-    function init() {
-      document.getElementById('storageNote').textContent = 'Every balance is public in ram133/guamcoin.';
-      var pending = prefixes.length;
-      var p;
-      for (p = 0; p < prefixes.length; p++) {
-        (function (prefix) {
-          createTab(prefix);
-          document.getElementById('search-' + prefix).oninput = function () { renderPage(prefix, 1); };
-          loadOverrides(prefix, function (data) {
-            overrides[prefix] = data;
-            pending -= 1;
-            if (pending === 0) showTab(prefixes[0]);
-          });
-        })(prefixes[p]);
-      }
-      tabButtonsDiv.onclick = function (e) {
-        var t = e.target || e.srcElement;
-        if (t && t.tagName === 'BUTTON') showTab(t.getAttribute('data-prefix'));
-      };
-      tabContainer.onclick = function (e) {
-        var t = e.target || e.srcElement;
-        if (!t || t.tagName !== 'BUTTON') return;
-        var action = t.getAttribute('data-action');
-        if (action === 'send') sendCoins(t.getAttribute('data-prefix'), t.getAttribute('data-phone'));
-      };
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  </script>
+    <div class="card">
+        <h3>Guam Web Development & PWA Setup</h3>
+        <p>Custom single-file progressive web apps and automation scripts.</p>
+        <div class="price">$150</div>
+        <a class="btn" href="https://buy.stripe.com/test_placeholder" target="_blank">Book Service</a>
+    </div>
+
+    <div class="card">
+        <h3>Guam Coin & Digital Asset Integration</h3>
+        <p>Stripe payment links and token distribution systems.</p>
+        <div class="price">$100</div>
+        <a class="btn" href="https://buy.stripe.com/test_placeholder" target="_blank">Book Service</a>
+    </div>
+
+    <div class="card">
+        <h3>Automated Lead Generation Setup</h3>
+        <p>Python-powered cloud automation running via GitHub Actions.</p>
+        <div class="price">$200</div>
+        <a class="btn" href="https://buy.stripe.com/test_placeholder" target="_blank">Book Service</a>
+    </div>
+
+    <footer>
+        <p>Last updated via automated cloud worker on 2026-10-07 09:20:21</p>
+    </footer>
 </body>
 </html>
