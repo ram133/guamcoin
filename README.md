@@ -1,0 +1,197 @@
+# guamcoin
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuamCoin Wallet Explorer</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1em; margin: 0; }
+    .tab-menu { display: flex; gap: 8px; margin-bottom: 1em; flex-wrap: wrap; }
+    .tab-menu button { padding: 8px 12px; font-size: 0.9em; cursor: pointer; border: 1px solid #ccc; background: #f4f4f4; }
+    .tab-menu button.active { background: #d0eaff; font-weight: bold; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    input.searchInput, input.tokenInput { margin-bottom: 1em; width: 100%; padding: 0.5em; font-size: 1em; box-sizing: border-box; }
+    ul.numberList { list-style: none; padding: 0; margin: 0; }
+    ul.numberList li { padding: 6px 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid #eee; }
+    .coins { color: green; font-weight: bold; margin-right: 10px; }
+    .status { margin-left: 10px; font-style: italic; }
+    .history { display: block; color: #666; font-size: 0.8em; margin-top: 4px; }
+    .wallet-actions button { margin-left: 6px; padding: 2px 6px; font-size: 0.8em; cursor: pointer; }
+    .pagination button { margin: 2px; padding: 5px 10px; font-size: 0.9em; cursor: pointer; }
+    .note { color: #666; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>GuamCoin Wallet Explorer</h1>
+    <p class="note" id="storageNote"></p>
+    <input type="password" class="tokenInput" id="tokenInput" placeholder="GitHub token with contents write on the coin repo" />
+    <div class="tab-menu" id="tabButtons"></div>
+    <div id="tabContainer"></div>
+  </main>
+  <script>
+    var OWNER = 'YOUR_ACCOUNT';
+    var REPO = 'YOUR_COIN_REPO';
+    var BRANCH = 'main';
+    var prefixes = [456, 678, 682, 683, 685, 686, 687, 688, 689, 707, 726, 727, 747, 777, 787, 788, 797, 838, 848, 858, 868, 878, 888, 898, 922, 929, 967, 969, 971, 972, 977, 979, 987, 988, 989, 991, 996, 997, 998, 999];
+    var total = 9999;
+    var perPage = 200;
+    var tabButtonsDiv = document.getElementById('tabButtons');
+    var tabContainer = document.getElementById('tabContainer');
+    var overrides = {};
+    var currentPage = {};
+    var busy = {};
+
+    function rawUrl(prefix) {
+      return 'https://raw.githubusercontent.com/' + OWNER + '/' + REPO + '/' + BRANCH + '/balances/' + prefix + '.json?t=' + Date.now();
+    }
+    function apiUrl(prefix) {
+      return 'https://api.github.com/repos/' + OWNER + '/' + REPO + '/contents/balances/' + prefix + '.json';
+    }
+    function token() {
+      return document.getElementById('tokenInput').value || sessionStorage.getItem('ghToken') || '';
+    }
+    function phoneAt(prefix, index) {
+      return String(671) + String(prefix) + ('0000' + index).slice(-4);
+    }
+    function entryAt(prefix, index) {
+      var phone = phoneAt(prefix, index);
+      var saved = overrides[prefix][phone];
+      return { phone: phone, coins: saved ? saved.coins : 100, status: saved ? saved.status : 'active', history: saved && saved.history ? saved.history : [] };
+    }
+    function loadOverrides(prefix, done) {
+      fetch(rawUrl(prefix))
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (data) { done(data || {}); })
+        .catch(function () { done({}); });
+    }
+    function createTab(prefix) {
+      var btn = document.createElement('button');
+      btn.textContent = prefix;
+      btn.setAttribute('data-prefix', prefix);
+      tabButtonsDiv.appendChild(btn);
+      var wrapper = document.createElement('div');
+      wrapper.className = 'tab-content';
+      wrapper.id = 'tab-' + prefix;
+      wrapper.innerHTML = '<input type="text" class="searchInput" id="search-' + prefix + '" placeholder="Search ' + prefix + ' numbers..." /><ul class="numberList" id="list-' + prefix + '"></ul><div class="pagination" id="pagination-' + prefix + '"></div>';
+      tabContainer.appendChild(wrapper);
+    }
+    function showTab(activePrefix) {
+      var tabs = document.querySelectorAll('.tab-content');
+      var buttons = document.querySelectorAll('.tab-menu button');
+      var i;
+      for (i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+      for (i = 0; i < buttons.length; i++) buttons[i].classList.remove('active');
+      document.getElementById('tab-' + activePrefix).classList.add('active');
+      for (i = 0; i < buttons.length; i++) {
+        if (buttons[i].textContent == String(activePrefix)) buttons[i].classList.add('active');
+      }
+      renderPage(activePrefix, currentPage[activePrefix] || 1);
+    }
+    function updateCoins(prefix, phone, delta) {
+      if (busy[prefix]) return;
+      var key = token();
+      if (!key) { alert('Enter the GitHub token first.'); return; }
+      busy[prefix] = true;
+      fetch(apiUrl(prefix), { headers: { Authorization: 'Bearer ' + key, Accept: 'application/vnd.github+json' } })
+        .then(function (r) { return r.status === 404 ? { missing: true } : r.json(); })
+        .then(function (file) {
+          var data = {};
+          if (!file.missing && file.content) data = JSON.parse(atob(file.content.replace(/\n/g, '')));
+          var row = data[phone] || { coins: 100, status: 'active', history: [] };
+          if (!row.history) row.history = [];
+          row.coins = Math.max(0, row.coins + delta);
+          row.history.push({ delta: delta, reason: delta < 0 ? 'send' : 'receive', at: new Date().toISOString(), balance: row.coins });
+          data[phone] = row;
+          return fetch(apiUrl(prefix), {
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + key, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: phone + ' ' + delta, content: btoa(JSON.stringify(data)), sha: file.sha, branch: BRANCH })
+          }).then(function (r) {
+            if (!r.ok) throw new Error('GitHub write failed');
+            overrides[prefix] = data;
+            renderPage(prefix, currentPage[prefix] || 1);
+          });
+        })
+        .catch(function () { alert('Could not save ' + phone + '. Check token, repo, and that balances/' + prefix + '.json exists.'); })
+        .then(function () { busy[prefix] = false; });
+    }
+    function matches(phone, filterVal) {
+      return !filterVal || phone.indexOf(filterVal) !== -1;
+    }
+    function renderPage(prefix, page) {
+      currentPage[prefix] = page;
+      var input = document.getElementById('search-' + prefix);
+      var filterVal = input ? input.value : '';
+      var list = document.getElementById('list-' + prefix);
+      list.innerHTML = '';
+      var indexes = [];
+      var i;
+      for (i = 0; i < total; i++) {
+        if (matches(phoneAt(prefix, i), filterVal)) indexes.push(i);
+      }
+      var pages = Math.max(1, Math.ceil(indexes.length / perPage));
+      if (page < 1) page = 1;
+      if (page > pages) page = pages;
+      var sliced = indexes.slice((page - 1) * perPage, page * perPage);
+      for (i = 0; i < sliced.length; i++) {
+        var item = entryAt(prefix, sliced[i]);
+        var last = item.history.length ? item.history[item.history.length - 1] : null;
+        var li = document.createElement('li');
+        li.innerHTML = '<span>' + item.phone + (last ? '<span class="history">last ' + last.reason + ' ' + last.delta + ' at ' + last.at + '</span>' : '') + '</span><span><span class="coins">(' + item.coins + ' coins)</span><span class="status">' + item.status + '</span><span class="wallet-actions"><button data-action="send" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Send 10</button><button data-action="receive" data-phone="' + item.phone + '" data-prefix="' + prefix + '">Receive 10</button></span></span>';
+        list.appendChild(li);
+      }
+      renderPagination(prefix, indexes.length, page);
+    }
+    function renderPagination(prefix, length, activePage) {
+      var container = document.getElementById('pagination-' + prefix);
+      container.innerHTML = '';
+      var pages = Math.max(1, Math.ceil(length / perPage));
+      var i;
+      for (i = 1; i <= pages; i++) {
+        var btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === activePage) btn.style.fontWeight = 'bold';
+        btn.onclick = (function (n) { return function () { renderPage(prefix, n); }; })(i);
+        container.appendChild(btn);
+      }
+    }
+    function init() {
+      var note = document.getElementById('storageNote');
+      note.textContent = 'Balances and history are read from balances/{prefix}.json in ' + OWNER + '/' + REPO + '. Writes commit back to that file.';
+      var tokenInput = document.getElementById('tokenInput');
+      tokenInput.value = sessionStorage.getItem('ghToken') || '';
+      tokenInput.onchange = function () { sessionStorage.setItem('ghToken', tokenInput.value); };
+      var pending = prefixes.length;
+      var p;
+      for (p = 0; p < prefixes.length; p++) {
+        (function (prefix) {
+          createTab(prefix);
+          document.getElementById('search-' + prefix).oninput = function () { renderPage(prefix, 1); };
+          loadOverrides(prefix, function (data) {
+            overrides[prefix] = data;
+            pending -= 1;
+            if (pending === 0) showTab(prefixes[0]);
+          });
+        })(prefixes[p]);
+      }
+      tabButtonsDiv.onclick = function (e) {
+        var t = e.target || e.srcElement;
+        if (t && t.tagName === 'BUTTON') showTab(t.getAttribute('data-prefix'));
+      };
+      tabContainer.onclick = function (e) {
+        var t = e.target || e.srcElement;
+        if (!t || t.tagName !== 'BUTTON') return;
+        var action = t.getAttribute('data-action');
+        if (!action) return;
+        updateCoins(t.getAttribute('data-prefix'), t.getAttribute('data-phone'), action === 'send' ? -10 : 10);
+      };
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  </script>
+</body>
+</html>
