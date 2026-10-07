@@ -1,41 +1,11 @@
 name: Cloud-Native Automation Engine
 
+
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 * * * *'
+
   workflow_dispatch:
-
-jobs:
-  run-cloud-worker:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Execute Autonomous Cloud Script
-        run: python3 sender.py
-
-      - name: Sync State Back to Repository
-        run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git add -A
-          git diff --quiet && git diff --cached --quiet || (git commit -m "Autonomous cloud execution sync [skip ci]" && git push)
-
-  - name: Run Tracker
-    run: python3 tracker.py
-
-  - name: Sync Metrics
-    run: |
-      git config --global user.name "GitHub Actions Bot"
-      git config --global user.email "actions@github.com"
-      git add metrics.json
-      git diff --quiet && git diff --cached --quiet || (git commit -m "Automated metrics sync [skip ci]" && git push)
+  schedule:
+    - cr
