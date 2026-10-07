@@ -1,6 +1,4 @@
 {
-  "total_contacted": 820,
-  "estimated_revenue": 4100.0,
-  "checkout_provider": "stripe_or_web3",
-  "live_conversion_tracking": true
+  "total_contacted": 825,
+  "estimated_revenue": 4125.0
 }
