@@ -1,6 +1,7 @@
 name: Cloud-Native Automation Engine
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
