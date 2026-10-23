@@ -1,0 +1,16 @@
+{
+  "/Users/cliffordhackett/token-deployer/contracts/MyToken.sol": {
+    "jobHash": "solc-0_8_20-70b1f5721c35a143508ecb5f051816b8dcc6232c",
+    "isolated": false,
+    "compilerType": "solc",
+    "artifactPaths": [
+      "/Users/cliffordhackett/token-deployer/artifacts/contracts/MyToken.sol/FactCoin.json"
+    ],
+    "buildInfoPath": "/Users/cliffordhackett/token-deployer/artifacts/build-info/solc-0_8_20-70b1f5721c35a143508ecb5f051816b8dcc6232c.json",
+    "buildInfoOutputPath": "/Users/cliffordhackett/token-deployer/artifacts/build-info/solc-0_8_20-70b1f5721c35a143508ecb5f051816b8dcc6232c.output.json",
+    "typeFilePath": "/Users/cliffordhackett/token-deployer/artifacts/contracts/MyToken.sol/artifacts.d.ts",
+    "wasm": true,
+    "artifactsDirectory": "/Users/cliffordhackett/token-deployer/artifacts",
+    "emitsTypeDeclarations": true
+  }
+}
