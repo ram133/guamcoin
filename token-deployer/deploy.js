@@ -1,18 +1,13 @@
-import { ethers } from "ethers";
-import fs from "fs";
+import hre from "hardhat";
 
 async function main() {
-    const provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
-    const signer = await provider.getSigner();
-
-    const artifact = JSON.parse(fs.readFileSync("./artifacts/contracts/MyToken.sol/FactCoin.json", "utf8"));
-    
-    console.log("Deploying Fact Coin...");
-    const Factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-    const factCoin = await Factory.deploy();
+    const FactCoin = await hre.ethers.getContractFactory("FactCoin");
+    console.log("Deploying Fact Coin to Sepolia...");
+    const factCoin = await FactCoin.deploy();
     await factCoin.waitForDeployment();
     
-    console.log(`Fact Coin deployed to: ${await factCoin.getAddress()}`);
+    const address = await factCoin.getAddress();
+    console.log(`Fact Coin successfully deployed live to Sepolia at: ${address}`);
 }
 
 main().catch((error) => {
